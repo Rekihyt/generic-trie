@@ -77,7 +77,7 @@ pub fn Trie(
         pub const GetOrPutResult = HashMap.GetOrPutResult;
         pub const Entry = HashMap.Entry;
 
-        map: HashMap = .{},
+        keys: HashMap = .{},
         value: Value = default,
 
         /// The intermediate results of matching a trie, which may or may not be
@@ -93,9 +93,9 @@ pub fn Trie(
         // use putAssumeCapacity
         pub fn copy(self: Self, allocator: Allocator) Allocator.Error!Self {
             var result = Self{};
-            var map_iter = self.map.iterator();
-            while (map_iter.next()) |entry|
-                try result.map.putNoClobber(
+            var keys_iter = self.keys.iterator();
+            while (keys_iter.next()) |entry|
+                try result.keys.putNoClobber(
                     allocator,
                     entry.key_ptr.*,
                     try entry.value_ptr.*.copy(allocator),
@@ -120,8 +120,8 @@ pub fn Trie(
 
         /// The opposite of `copy`.
         pub fn deinit(self: *Self, allocator: Allocator) void {
-            defer self.map.deinit(allocator);
-            var iter = self.map.iterator();
+            defer self.keys.deinit(allocator);
+            var iter = self.keys.iterator();
             while (iter.next()) |entry| {
                 entry.value_ptr.*.deinit(allocator);
             }
@@ -131,13 +131,13 @@ pub fn Trie(
         // compared without following pointers using meta.eql if no eql function
         // is provided.
         pub fn eql(self: Self, other: Self) bool {
-            if (self.map.count() != other.map.count())
+            if (self.keys.count() != other.keys.count())
                 return false;
 
-            var map_iter = self.map.iterator();
-            var other_map_iter = other.map.iterator();
-            while (map_iter.next()) |entry| {
-                const other_entry = other_map_iter.next() orelse
+            var keys_iter = self.keys.iterator();
+            var other_keys_iter = other.keys.iterator();
+            while (keys_iter.next()) |entry| {
+                const other_entry = other_keys_iter.next() orelse
                     return false;
                 if (!(Context.eql(
                     undefined,
@@ -165,7 +165,7 @@ pub fn Trie(
             var current = trie;
             // Follow the longest branch that exists
             const prefix_len = for (key, 0..) |term, i| {
-                current = current.map.get(term) orelse
+                current = current.keys.get(term) orelse
                     break i;
             } else key.len;
 
@@ -205,7 +205,7 @@ pub fn Trie(
         ) !*Self {
             var current = trie;
             for (key) |term| {
-                const entry = try current.map
+                const entry = try current.keys
                     .getOrPutValue(allocator, term, Self{});
                 current = entry.value_ptr;
             }
@@ -213,7 +213,7 @@ pub fn Trie(
         }
 
         pub fn count(self: Self) usize {
-            var iter = self.map.valueIterator();
+            var iter = self.keys.valueIterator();
             var total = 0;
             while (iter.next()) |next|
                 total += next.count();
@@ -235,9 +235,9 @@ test "Trie: eql" {
     var child1 = TokenStrTrie{};
     var child2 = TokenStrTrie{};
 
-    try expected.map.put(allocator, "Aa", child1);
+    try expected.keys.put(allocator, "Aa", child1);
     child1.value = "Val1";
-    try child1.map.put(allocator, "Bb", child2);
+    try child1.keys.put(allocator, "Bb", child2);
     child2.value = "Val2";
 
     var actual = TokenStrTrie{};
@@ -258,9 +258,9 @@ test "put multiple keys" {
         456,
     );
     try testing.expectEqual(
-        trie.map.get(1).?
-            .map.get(2).?
-            .map.get(3).?
+        trie.keys.get(1).?
+            .keys.get(2).?
+            .keys.get(3).?
             .value,
         456,
     );
